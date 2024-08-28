@@ -44,23 +44,18 @@ elif [ "$1" == "osbo" ]; then
     otf=$(ls external/OpenThings-Framework-Firmware-Library/*.cpp)
 	g++ -o OpenSprinkler -DOSBO -DSMTP_OPENSSL $DEBUG -std=c++14 -include string.h main.cpp OpenSprinkler.cpp program.cpp opensprinkler_server.cpp utils.cpp weather.cpp gpio.cpp mqtt.cpp smtp.c -Iexternal/TinyWebsockets/tiny_websockets_lib/include $ws -Iexternal/OpenThings-Framework-Firmware-Library/ $otf -lpthread -lmosquitto -lssl -lcrypto
 else
-	echo "Installing required OSPI libraries..."
+	echo "Installing required libraries..."
 	apt-get update
-  
-  # <JRJ> Install required packages using apt-get: don't try to install raspi-gpio if it isn't available via apt-get [install via github https://github.com/RPi-Distro/raspi-gpio instead] 
-  if sudo apt-get --simulate install raspi-gpio; then  
-    apt-get install -y libmosquitto-dev raspi-gpio libi2c-dev libssl-dev libgpiod-dev
-  else 
-    apt-get install -y libmosquitto-dev libi2c-dev libssl-dev libgpiod-dev
-  fi
-
-  if ! command -v raspi-gpio &> /dev/null; then
-		echo "Command raspi-gpio is required but is NOT installed"
+	apt-get install -y libmosquitto-dev raspi-gpio libi2c-dev libssl-dev libgpiod-dev
+	if ! command -v raspi-gpio &> /dev/null
+	then
+		echo "Command raspi-gpio is required and is not installed"
 		exit 0
 	fi
 
 	USEGPIO=""
 	GPIOLIB=""
+
 
 	if [ -h "/sys/class/gpio/gpiochip512" ]; then
 		echo "using libgpiod"
