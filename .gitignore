@@ -1,4 +1,5 @@
 logs/**
+configs/*
 OpenSprinkler
 wtopts.txt
 *.dat
