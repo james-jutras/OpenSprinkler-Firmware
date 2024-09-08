@@ -45,7 +45,8 @@ private:
     static int _subscribe(void);
     static int _loop(void);
     static const char * _state_string(int state);
-    public:
+
+public:
     static void init(void);
     static void init(const char * id);
     static void begin(void);
@@ -55,6 +56,7 @@ private:
     static void loop(void);
     static char* get_pub_topic() { return _pub_topic; }
     static char* get_sub_topic() { return _sub_topic; }
+    static bool is_connected(void);
 };
 
 #endif	// _MQTT_H

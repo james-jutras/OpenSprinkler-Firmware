@@ -70,6 +70,27 @@ void str2mac(const char *_str, unsigned char mac[]);
 #if defined(ARDUINO)
 
 #else // Arduino compatible functions for RPI/BBB
+
+	char* get_host_name(void); 
+	char* get_user_name(void);
+	char* get_runtime_path(void);
+	char* get_home_directory(void);
+	char* get_mqtt_client_id(void);
+  void set_mqtt_root_topic(const char *roottopic);  
+	char* get_mqtt_root_topic(void);
+	char* get_mqtt_availability_topic(void);
+  char *get_mqtt_weather_topic(void);
+	char* get_mqtt_station_topic(void); 
+	char* get_mqtt_program_topic(void); 
+	char* get_mqtt_sensor1_topic(void);
+	char* get_mqtt_sensor2_topic(void); 
+	char* get_mqtt_raindelay_topic(void); 
+	char* get_mqtt_flowsensor_topic(void); 
+	char* get_mqtt_weather_topic(void); 
+	char* get_mqtt_system_topic(void);
+  	ulong milliSeconds(void);
+	ulong microSeconds(void); 
+  
 	const char* get_data_dir();
 	void set_data_dir(const char *new_data_dir);
 	char* get_filename_fullpath(const char *filename);

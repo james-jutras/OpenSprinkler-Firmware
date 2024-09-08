@@ -34,11 +34,12 @@ typedef unsigned long ulong;
 #define OS_FW_VERSION  221  // Firmware version: 221 means 2.2.1
 														// if this number is different from the one stored in non-volatile memory
 														// a device reset will be automatically triggered
+#define OS_FW_MINOR      0  // Firmware minor version                           
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // JRJ v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// #define OS_FW_MINOR      0  // Firmware minor version
-#define OS_FW_MINOR      1  // Firmware minor version
+#undef  OS_FW_MINOR
+#define OS_FW_MINOR    100  // JRJ Customized firmware minor version e.g. 2.2.1.100 (OS_FW_MINOR + 100)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // JRJ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,6 +84,10 @@ typedef unsigned long ulong;
 #define NOTIFY_SENSOR2         0x0040
 #define NOTIFY_RAINDELAY       0x0080
 #define NOTIFY_STATION_ON      0x0100
+#define NOTIFY_STATION_STATUS_UPDATE  0x0200
+#define NOTIFY_PROGRAM_ON             0x0400
+#define NOTIFY_PROGRAM_STATUS_UPDATE  0x0800
+#define NOTIFY_PROGRAM_OFF            0x1000
 
 /** HTTP request macro defines */
 #define HTTP_RQT_SUCCESS       0

@@ -21,66 +21,265 @@
  * <http://www.gnu.org/licenses/>
  */
 
+//
+// <JRJ> V2.2.1.0_2
+// 	  2024-09-02 Added spdlog V1.14.1 for enhanced logging/debugging capability e.g. descriptive messages, lof file management
+//
+
+#include <limits.h> // <JRJ> For gethostname and getlogin_r
+#include <unistd.h> // <JRJ> For gethostname and getlogin_r
+#include <pwd.h>	// <JRJ> For gethostname and getlogin_r
 #include "utils.h"
 #include "types.h"
 #include "OpenSprinkler.h"
 extern OpenSprinkler os;
 
-#if defined(ARDUINO)  // Arduino
+#if defined(ARDUINO) // Arduino
 
-	#if defined(ESP8266)
-		#include <FS.h>
-		#include <LittleFS.h>
-	#else
-		#include <avr/eeprom.h>
-		#include "SdFat.h"
-		extern SdFat sd;
-	#endif
+#if defined(ESP8266)
+#include <FS.h>
+#include <LittleFS.h>
+#else
+#include <avr/eeprom.h>
+#include "SdFat.h"
+extern SdFat sd;
+#endif
 
 #else // RPI/BBB
+char *get_host_name(void)
+{
+	static char hostname[HOST_NAME_MAX];
+	static bool query = true;
 
-static char* get_runtime_path() {
+	if (query)
+	{
+		// memset(hostname, 0, HOST_NAME_MAX);
+		memset(hostname, '\0', sizeof(char) * HOST_NAME_MAX);
+
+		gethostname(hostname, HOST_NAME_MAX);
+		query = false;
+	}
+	return hostname;
+}
+
+char *get_user_name(void)
+{
+	static char username[LOGIN_NAME_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(username, 0, LOGIN_NAME_MAX);
+		memset(username, '\0', sizeof(char) * LOGIN_NAME_MAX);
+
+		strcpy_P(username, getpwuid(getuid())->pw_name); // Works for normal user plus sudo e.g. root
+		if (!username)
+			getlogin_r(username, LOGIN_NAME_MAX); // Only works for normal user e.g. pi
+		query = false;
+	}
+	return username;
+}
+char *get_runtime_path()
+{
 	static char path[PATH_MAX];
 	static unsigned char query = 1;
 
-	#ifdef __APPLE__
-		strcpy(path, "./");
-		return path;
-	#endif
+#ifdef __APPLE__
+	strcpy(path, "./");
+	return path;
+#endif
 
-	if(query) {
-		if(readlink("/proc/self/exe", path, PATH_MAX ) <= 0) {
+	if (query)
+	{
+		if (readlink("/proc/self/exe", path, PATH_MAX) <= 0)
+		{
 			return NULL;
 		}
-		char* path_end = strrchr(path, '/');
-		if(path_end == NULL) {
+		char *path_end = strrchr(path, '/');
+		if (path_end == NULL)
+		{
 			return NULL;
 		}
 		path_end++;
-		*path_end=0;
+		*path_end = 0;
 		query = 0;
 	}
 	return path;
 }
 
+char *get_home_directory(void)
+{
+	static char homedir[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(homedir, 0, PATH_MAX);
+		memset(homedir, '\0', sizeof(char) * PATH_MAX);
+
+		if (string(get_user_name()) != "root")
+		{
+			if (getenv("HOME") == NULL)
+				strcpy_P(homedir, getpwuid(getuid())->pw_dir);
+			else
+				strcpy_P(homedir, getenv("HOME"));
+		}
+		else
+			strcpy_P(homedir, "/home/pi");
+		query = false;
+	}
+	return homedir;
+}
+
+// #define MQTT_CLIENT_ID			"OSPI_219_7_HA-RPI4B"
+char *get_mqtt_client_id(void)
+{
+	static char mqttclientid[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(mqttclientid, 0, PATH_MAX);
+		memset(mqttclientid, '\0', sizeof(char) * PATH_MAX);
+
+		strcpy(mqttclientid, "OSPI_2210_2_");
+		strcat(mqttclientid, get_host_name());
+
+		query = false;
+	}
+	return mqttclientid;
+}
+
+static char mqtt_root_topic[PATH_MAX];
+
+void set_mqtt_root_topic(const char *roottopic)
+{
+	// memset(roottopic, 0, PATH_MAX);
+	memset(mqtt_root_topic, '\0', sizeof(char) * PATH_MAX);
+
+	strcpy(mqtt_root_topic, roottopic);
+
+	return;
+}
+
+char *get_mqtt_root_topic(void)
+{
+	if (mqtt_root_topic[0] == 0)
+	{
+		if (strcmp(get_host_name(), "OSFY-RPI4B8") == 0)
+			strcpy(mqtt_root_topic, "opensprinkler/frontyard");
+		else if (strcmp(get_host_name(), "OSBY-RPI4B8") == 0)
+			strcpy(mqtt_root_topic, "opensprinkler/backyard");
+		else if (strcmp(get_host_name(), "HA-RPI4B") == 0)
+			strcpy(mqtt_root_topic, "opensprinkler/ha-rpi4b");
+		else
+			strcpy(mqtt_root_topic, "opensprinkler/unknown_host");
+	}
+	return mqtt_root_topic;
+}
+
+char *get_mqtt_availability_topic(void)
+{
+	static char availabilitytopic[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(availabilitytopic, 0, PATH_MAX);
+		memset(availabilitytopic, '\0', sizeof(char) * PATH_MAX);
+
+		// strcpy(availabilitytopic, get_mqtt_root_topic());
+		// strcat(availabilitytopic, "/availability");
+		strcpy(availabilitytopic, "availability");
+
+		query = false;
+	}
+	return availabilitytopic;
+}
+
+// #define MQTT_STATION_TOPIC	MQTT_ROOT_TOPIC "/station"
+char *get_mqtt_station_topic(void)
+{
+	static char stationtopic[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(stationtopic, 0, PATH_MAX);
+		memset(stationtopic, '\0', sizeof(char) * PATH_MAX);
+
+		// strcpy(stationtopic, get_mqtt_root_topic());
+		// strcat(stationtopic, "/station");
+		strcpy(stationtopic, "station");
+
+		query = false;
+	}
+	return stationtopic;
+}
+
+char *get_mqtt_system_topic(void)
+{
+	static char systemtopic[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(stationtopic, 0, PATH_MAX);
+		memset(systemtopic, '\0', sizeof(char) * PATH_MAX);
+
+		// strcpy(systemtopic, get_mqtt_root_topic());
+		// strcat(systemtopic, "/system");
+		strcpy(systemtopic, "system");
+
+		query = false;
+	}
+	return systemtopic;
+}
+
+char *get_mqtt_weather_topic(void)
+{
+	static char weathertopic[PATH_MAX];
+	static bool query = true;
+
+	if (query)
+	{
+		// memset(stationtopic, 0, PATH_MAX);
+		memset(weathertopic, '\0', sizeof(char) * PATH_MAX);
+
+		// strcpy(systemtopic, get_mqtt_root_topic());
+		// strcat(systemtopic, "/system");
+		strcpy(weathertopic, "weather");
+
+		query = false;
+	}
+	return weathertopic;
+}
+
 static const char *data_dir = NULL;
 
-const char* get_data_dir(void) {
-	if (data_dir) {
+const char *get_data_dir(void)
+{
+	if (data_dir)
+	{
 		return data_dir;
-	} else {
+	}
+	else
+	{
 		return get_runtime_path();
 	}
 }
 
-void set_data_dir(const char *new_data_dir) {
+void set_data_dir(const char *new_data_dir)
+{
 	data_dir = new_data_dir;
 }
 
-char* get_filename_fullpath(const char *filename) {
+char *get_filename_fullpath(const char *filename)
+{
 	static char fullpath[PATH_MAX];
 	strcpy(fullpath, get_data_dir());
-	if ('/' != fullpath[strlen(fullpath) - 1]) {
+	if ('/' != fullpath[strlen(fullpath) - 1])
+	{
 		strcat(fullpath, "/");
 	}
 	strcat(fullpath, filename);
@@ -89,54 +288,54 @@ char* get_filename_fullpath(const char *filename) {
 
 void delay(ulong howLong)
 {
-	struct timespec sleeper, dummy ;
+	struct timespec sleeper, dummy;
 
-	sleeper.tv_sec  = (time_os_t)(howLong / 1000) ;
-	sleeper.tv_nsec = (long)(howLong % 1000) * 1000000 ;
+	sleeper.tv_sec = (time_os_t)(howLong / 1000);
+	sleeper.tv_nsec = (long)(howLong % 1000) * 1000000;
 
-	nanosleep (&sleeper, &dummy) ;
+	nanosleep(&sleeper, &dummy);
 }
 
-void delayMicrosecondsHard (ulong howLong)
+void delayMicrosecondsHard(ulong howLong)
 {
-	struct timeval tNow, tLong, tEnd ;
+	struct timeval tNow, tLong, tEnd;
 
-	gettimeofday (&tNow, NULL) ;
-	tLong.tv_sec  = howLong / 1000000 ;
-	tLong.tv_usec = howLong % 1000000 ;
-	timeradd (&tNow, &tLong, &tEnd) ;
+	gettimeofday(&tNow, NULL);
+	tLong.tv_sec = howLong / 1000000;
+	tLong.tv_usec = howLong % 1000000;
+	timeradd(&tNow, &tLong, &tEnd);
 
-	while (timercmp (&tNow, &tEnd, <))
-		gettimeofday (&tNow, NULL) ;
+	while (timercmp(&tNow, &tEnd, <))
+		gettimeofday(&tNow, NULL);
 }
 
-void delayMicroseconds (ulong howLong)
+void delayMicroseconds(ulong howLong)
 {
-	struct timespec sleeper ;
-	unsigned int uSecs = howLong % 1000000 ;
-	unsigned int wSecs = howLong / 1000000 ;
+	struct timespec sleeper;
+	unsigned int uSecs = howLong % 1000000;
+	unsigned int wSecs = howLong / 1000000;
 
-	/**/ if (howLong ==		0)
-		return ;
+	/**/ if (howLong == 0)
+		return;
 	else if (howLong < 100)
-		delayMicrosecondsHard (howLong) ;
+		delayMicrosecondsHard(howLong);
 	else
 	{
-		sleeper.tv_sec  = wSecs ;
-		sleeper.tv_nsec = (long)(uSecs * 1000L) ;
-		nanosleep (&sleeper, NULL) ;
+		sleeper.tv_sec = wSecs;
+		sleeper.tv_nsec = (long)(uSecs * 1000L);
+		nanosleep(&sleeper, NULL);
 	}
 }
 
-static uint64_t epochMilli, epochMicro ;
+static uint64_t epochMilli, epochMicro;
 
 void initialiseEpoch()
 {
-	struct timeval tv ;
+	struct timeval tv;
 
-	gettimeofday (&tv, NULL) ;
-	epochMilli = (uint64_t)tv.tv_sec * (uint64_t)1000    + (uint64_t)(tv.tv_usec / 1000) ;
-	epochMicro = (uint64_t)tv.tv_sec * (uint64_t)1000000 + (uint64_t)(tv.tv_usec) ;
+	gettimeofday(&tv, NULL);
+	epochMilli = (uint64_t)tv.tv_sec * (uint64_t)1000 + (uint64_t)(tv.tv_usec / 1000);
+	epochMicro = (uint64_t)tv.tv_sec * (uint64_t)1000000 + (uint64_t)(tv.tv_usec);
 }
 
 // ulong millis (void)
@@ -150,32 +349,60 @@ void initialiseEpoch()
 // 	return (ulong)(now - epochMilli) ;
 // }
 
-ulong micros (void)
+ulong milliSeconds(void)
 {
-	struct timeval tv ;
-	uint64_t now ;
+	struct timeval tv;
+	uint64_t now;
 
-	gettimeofday (&tv, NULL) ;
-	now  = (uint64_t)tv.tv_sec * (uint64_t)1000000 + (uint64_t)tv.tv_usec ;
+	gettimeofday(&tv, NULL);
+	now = (uint64_t)tv.tv_sec * (uint64_t)1000 + (uint64_t)(tv.tv_usec / 1000);
 
-	return (ulong)(now - epochMicro) ;
+	return (ulong)(now - epochMilli);
+}
+
+ulong microSeconds(void)
+{
+	struct timeval tv;
+	uint64_t now;
+
+	gettimeofday(&tv, NULL);
+	now = (uint64_t)tv.tv_sec * (uint64_t)1000000 + (uint64_t)tv.tv_usec;
+
+	return (ulong)(now - epochMicro);
+}
+
+ulong micros(void)
+{
+	struct timeval tv;
+	uint64_t now;
+
+	gettimeofday(&tv, NULL);
+	now = (uint64_t)tv.tv_sec * (uint64_t)1000000 + (uint64_t)tv.tv_usec;
+
+	return (ulong)(now - epochMicro);
 }
 
 #if defined(OSPI)
-unsigned int detect_rpi_rev() {
-	FILE * filp;
+unsigned int detect_rpi_rev()
+{
+	FILE *filp;
 	unsigned int rev;
 	char buf[512];
 	char term;
 
 	rev = 0;
-	filp = fopen ("/proc/cpuinfo", "r");
+	filp = fopen("/proc/cpuinfo", "r");
 
-	if (filp != NULL) {
-		while (fgets(buf, sizeof(buf), filp) != NULL) {
-			if (!strncasecmp("revision\t", buf, 9)) {
-				if (sscanf(buf+strlen(buf)-5, "%x%c", &rev, &term) == 2) {
-					if (term == '\n') break;
+	if (filp != NULL)
+	{
+		while (fgets(buf, sizeof(buf), filp) != NULL)
+		{
+			if (!strncasecmp("revision\t", buf, 9))
+			{
+				if (sscanf(buf + strlen(buf) - 5, "%x%c", &rev, &term) == 2)
+				{
+					if (term == '\n')
+						break;
 					rev = 0;
 				}
 			}
@@ -188,17 +415,19 @@ unsigned int detect_rpi_rev() {
 
 #endif
 
-
-void remove_file(const char *fn) {
+void remove_file(const char *fn)
+{
 #if defined(ESP8266)
 
-	if(!LittleFS.exists(fn)) return;
+	if (!LittleFS.exists(fn))
+		return;
 	LittleFS.remove(fn);
 
 #elif defined(ARDUINO)
 
 	sd.chdir("/");
-	if (!sd.exists(fn))  return;
+	if (!sd.exists(fn))
+		return;
 	sd.remove(fn);
 
 #else
@@ -208,7 +437,8 @@ void remove_file(const char *fn) {
 #endif
 }
 
-bool file_exists(const char *fn) {
+bool file_exists(const char *fn)
+{
 #if defined(ESP8266)
 
 	return LittleFS.exists(fn);
@@ -222,21 +452,30 @@ bool file_exists(const char *fn) {
 
 	FILE *file;
 	file = fopen(get_filename_fullpath(fn), "rb");
-	if(file) {fclose(file); return true;}
-	else {return false;}
+	if (file)
+	{
+		fclose(file);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 
 #endif
 }
 
 // file functions
-void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
+void file_read_block(const char *fn, void *dst, ulong pos, ulong len)
+{
 #if defined(ESP8266)
 
 	// do not use File.read_byte or read_byteUntil because it's very slow
 	File f = LittleFS.open(fn, "r");
-	if(f) {
+	if (f)
+	{
 		f.seek(pos, SeekSet);
-		f.read((unsigned char*)dst, len);
+		f.read((unsigned char *)dst, len);
 		f.close();
 	}
 
@@ -244,7 +483,8 @@ void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
 
 	sd.chdir("/");
 	SdFile file;
-	if(file.open(fn, O_READ)) {
+	if (file.open(fn, O_READ))
+	{
 		file.seekSet(pos);
 		file.read(dst, len);
 		file.close();
@@ -253,7 +493,8 @@ void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
 #else
 
 	FILE *fp = fopen(get_filename_fullpath(fn), "rb");
-	if(fp) {
+	if (fp)
+	{
 		fseek(fp, pos, SEEK_SET);
 		fread(dst, 1, len, fp);
 		fclose(fp);
@@ -262,14 +503,17 @@ void file_read_block(const char *fn, void *dst, ulong pos, ulong len) {
 #endif
 }
 
-void file_write_block(const char *fn, const void *src, ulong pos, ulong len) {
+void file_write_block(const char *fn, const void *src, ulong pos, ulong len)
+{
 #if defined(ESP8266)
 
 	File f = LittleFS.open(fn, "r+");
-	if(!f) f = LittleFS.open(fn, "w");
-	if(f) {
+	if (!f)
+		f = LittleFS.open(fn, "w");
+	if (f)
+	{
 		f.seek(pos, SeekSet);
-		f.write((unsigned char*)src, len);
+		f.write((unsigned char *)src, len);
 		f.close();
 	}
 
@@ -278,7 +522,8 @@ void file_write_block(const char *fn, const void *src, ulong pos, ulong len) {
 	sd.chdir("/");
 	SdFile file;
 	int ret = file.open(fn, O_CREAT | O_RDWR);
-	if(!ret) return;
+	if (!ret)
+		return;
 	file.seekSet(pos);
 	file.write(src, len);
 	file.close();
@@ -286,31 +531,37 @@ void file_write_block(const char *fn, const void *src, ulong pos, ulong len) {
 #else
 
 	FILE *fp = fopen(get_filename_fullpath(fn), "rb+");
-	if(!fp) {
+	if (!fp)
+	{
 		fp = fopen(get_filename_fullpath(fn), "wb+");
 	}
-	if(fp) {
-		fseek(fp, pos, SEEK_SET); //this fails silently without the above change
+	if (fp)
+	{
+		fseek(fp, pos, SEEK_SET); // this fails silently without the above change
 		fwrite(src, 1, len, fp);
 		fclose(fp);
 	}
 
 #endif
-
 }
 
-void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp) {
+void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
+{
 	// assume tmp buffer is provided and is larger than len
 	// todo future: if tmp buffer is not provided, do unsigned char-to-unsigned char copy
-	if(tmp==NULL) { return; }
+	if (tmp == NULL)
+	{
+		return;
+	}
 #if defined(ESP8266)
 
 	File f = LittleFS.open(fn, "r+");
-	if(!f) return;
+	if (!f)
+		return;
 	f.seek(from, SeekSet);
-	f.read((unsigned char*)tmp, len);
+	f.read((unsigned char *)tmp, len);
 	f.seek(to, SeekSet);
-	f.write((unsigned char*)tmp, len);
+	f.write((unsigned char *)tmp, len);
 	f.close();
 
 #elif defined(ARDUINO)
@@ -318,7 +569,8 @@ void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
 	sd.chdir("/");
 	SdFile file;
 	int ret = file.open(fn, O_RDWR);
-	if(!ret) return;
+	if (!ret)
+		return;
 	file.seekSet(from);
 	file.read(tmp, len);
 	file.seekSet(to);
@@ -328,7 +580,8 @@ void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
 #else
 
 	FILE *fp = fopen(get_filename_fullpath(fn), "rb+");
-	if(!fp) return;
+	if (!fp)
+		return;
 	fseek(fp, from, SEEK_SET);
 	fread(tmp, 1, len, fp);
 	fseek(fp, to, SEEK_SET);
@@ -336,76 +589,86 @@ void file_copy_block(const char *fn, ulong from, ulong to, ulong len, void *tmp)
 	fclose(fp);
 
 #endif
-
 }
 
 // compare a block of content
-unsigned char file_cmp_block(const char *fn, const char *buf, ulong pos) {
+unsigned char file_cmp_block(const char *fn, const char *buf, ulong pos)
+{
 #if defined(ESP8266)
 
 	File f = LittleFS.open(fn, "r");
-	if(f) {
+	if (f)
+	{
 		f.seek(pos, SeekSet);
 		char c = f.read();
-		while(*buf && (c==*buf)) {
+		while (*buf && (c == *buf))
+		{
 			buf++;
-			c=f.read();
+			c = f.read();
 		}
 		f.close();
-		return (*buf==c)?0:1;
+		return (*buf == c) ? 0 : 1;
 	}
 
 #elif defined(ARDUINO)
 
 	sd.chdir("/");
 	SdFile file;
-	if(file.open(fn, O_READ)) {
+	if (file.open(fn, O_READ))
+	{
 		file.seekSet(pos);
 		char c = file.read();
-		while(*buf && (c==*buf)) {
+		while (*buf && (c == *buf))
+		{
 			buf++;
-			c=file.read();
+			c = file.read();
 		}
 		file.close();
-		return (*buf==c)?0:1;
+		return (*buf == c) ? 0 : 1;
 	}
 
 #else
 
 	FILE *fp = fopen(get_filename_fullpath(fn), "rb");
-	if(fp) {
+	if (fp)
+	{
 		fseek(fp, pos, SEEK_SET);
 		char c = fgetc(fp);
-		while(*buf && (c==*buf)) {
+		while (*buf && (c == *buf))
+		{
 			buf++;
-			c=fgetc(fp);
+			c = fgetc(fp);
 		}
 		fclose(fp);
-		return (*buf==c)?0:1;
+		return (*buf == c) ? 0 : 1;
 	}
 
 #endif
 	return 1;
 }
 
-unsigned char file_read_byte(const char *fn, ulong pos) {
+unsigned char file_read_byte(const char *fn, ulong pos)
+{
 	unsigned char v = 0;
 	file_read_block(fn, &v, pos, 1);
 	return v;
 }
 
-void file_write_byte(const char *fn, ulong pos, unsigned char v) {
+void file_write_byte(const char *fn, ulong pos, unsigned char v)
+{
 	file_write_block(fn, &v, pos, 1);
 }
 
 // copy n-character string from program memory with ending 0
-void strncpy_P0(char* dest, const char* src, int n) {
+void strncpy_P0(char *dest, const char *src, int n)
+{
 	unsigned char i;
-	for(i=0;i<n;i++) {
-		*dest=pgm_read_byte(src++);
+	for (i = 0; i < n; i++)
+	{
+		*dest = pgm_read_byte(src++);
 		dest++;
 	}
-	*dest=0;
+	*dest = 0;
 }
 
 // resolve water time
@@ -413,54 +676,70 @@ void strncpy_P0(char* dest, const char* src, int n) {
  * 65534: sunrise to sunset duration
  * 65535: sunset to sunrise duration
  */
-ulong water_time_resolve(uint16_t v) {
-	if(v==65534) {
-		return (os.nvdata.sunset_time-os.nvdata.sunrise_time) * 60L;
-	} else if(v==65535) {
-		return (os.nvdata.sunrise_time+1440-os.nvdata.sunset_time) * 60L;
-	} else	{
+ulong water_time_resolve(uint16_t v)
+{
+	if (v == 65534)
+	{
+		return (os.nvdata.sunset_time - os.nvdata.sunrise_time) * 60L;
+	}
+	else if (v == 65535)
+	{
+		return (os.nvdata.sunrise_time + 1440 - os.nvdata.sunset_time) * 60L;
+	}
+	else
+	{
 		return v;
 	}
 }
 
 // encode a 16-bit signed water time (-600 to 600)
 // to unsigned byte (0 to 240)
-unsigned char water_time_encode_signed(int16_t i) {
-	i=(i>600)?600:i;
-	i=(i<-600)?-600:i;
-	return (i+600)/5;
+unsigned char water_time_encode_signed(int16_t i)
+{
+	i = (i > 600) ? 600 : i;
+	i = (i < -600) ? -600 : i;
+	return (i + 600) / 5;
 }
 
 // decode a 8-bit unsigned byte (0 to 240)
 // to a 16-bit signed water time (-600 to 600)
-int16_t water_time_decode_signed(unsigned char i) {
-	i=(i>240)?240:i;
-	return ((int16_t)i-120)*5;
+int16_t water_time_decode_signed(unsigned char i)
+{
+	i = (i > 240) ? 240 : i;
+	return ((int16_t)i - 120) * 5;
 }
 
-
 /** Convert a single hex digit character to its integer value */
-static unsigned char h2int(char c) {
-		if (c >= '0' && c <='9'){
-				return((unsigned char)c - '0');
-		}
-		if (c >= 'a' && c <='f'){
-				return((unsigned char)c - 'a' + 10);
-		}
-		if (c >= 'A' && c <='F'){
-				return((unsigned char)c - 'A' + 10);
-		}
-		return(0);
+static unsigned char h2int(char c)
+{
+	if (c >= '0' && c <= '9')
+	{
+		return ((unsigned char)c - '0');
+	}
+	if (c >= 'a' && c <= 'f')
+	{
+		return ((unsigned char)c - 'a' + 10);
+	}
+	if (c >= 'A' && c <= 'F')
+	{
+		return ((unsigned char)c - 'A' + 10);
+	}
+	return (0);
 }
 
 /** Decode a url string e.g "hello%20joe" or "hello+joe" becomes "hello joe" */
-void urlDecode (char *urlbuf) {
-	if(!urlbuf) return;
+void urlDecode(char *urlbuf)
+{
+	if (!urlbuf)
+		return;
 	char c;
 	char *dst = urlbuf;
-	while ((c = *urlbuf) != 0) {
-		if (c == '+') c = ' ';
-		if (c == '%') {
+	while ((c = *urlbuf) != 0)
+	{
+		if (c == '+')
+			c = ' ';
+		if (c == '%')
+		{
 			c = *++urlbuf;
 			c = (h2int(c) << 4) | h2int(*++urlbuf);
 		}
@@ -470,49 +749,66 @@ void urlDecode (char *urlbuf) {
 	*dst = '\0';
 }
 
-void peel_http_header(char* buffer) { // remove the HTTP header
-	uint16_t i=0;
-	bool eol=true;
-	while(i<ETHER_BUFFER_SIZE) {
+void peel_http_header(char *buffer)
+{ // remove the HTTP header
+	uint16_t i = 0;
+	bool eol = true;
+	while (i < ETHER_BUFFER_SIZE)
+	{
 		char c = buffer[i];
-		if(c==0)	return;
-		if(c=='\n' && eol) {
+		if (c == 0)
+			return;
+		if (c == '\n' && eol)
+		{
 			// copy
 			i++;
-			int j=0;
-			while(i<ETHER_BUFFER_SIZE) {
-				buffer[j]=buffer[i];
-				if(buffer[j]==0)	break;
+			int j = 0;
+			while (i < ETHER_BUFFER_SIZE)
+			{
+				buffer[j] = buffer[i];
+				if (buffer[j] == 0)
+					break;
 				i++;
 				j++;
 			}
 			return;
 		}
-		if(c=='\n') {
-			eol=true;
-		} else if (c!='\r') {
-			eol=false;
+		if (c == '\n')
+		{
+			eol = true;
+		}
+		else if (c != '\r')
+		{
+			eol = false;
 		}
 		i++;
 	}
 }
 
-void strReplace(char *str, char c, char r) {
-	for(unsigned char i=0;i<strlen(str);i++) {
-		if(str[i]==c) str[i]=r;
+void strReplace(char *str, char c, char r)
+{
+	for (unsigned char i = 0; i < strlen(str); i++)
+	{
+		if (str[i] == c)
+			str[i] = r;
 	}
 }
 
 static const unsigned char month_days[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-bool isValidDate(unsigned char m, unsigned char d) {
-	if(m<1 || m>12) return false;
-	if(d<1 || d>month_days[m-1]) return false;
+bool isValidDate(unsigned char m, unsigned char d)
+{
+	if (m < 1 || m > 12)
+		return false;
+	if (d < 1 || d > month_days[m - 1])
+		return false;
 	return true;
 }
 
-bool isValidDate(uint16_t date) {
-	if (date < MIN_ENCODED_DATE || date > MAX_ENCODED_DATE) {
+bool isValidDate(uint16_t date)
+{
+	if (date < MIN_ENCODED_DATE || date > MAX_ENCODED_DATE)
+	{
 		return false;
 	}
 	unsigned char month = date >> 5;
@@ -521,49 +817,66 @@ bool isValidDate(uint16_t date) {
 }
 
 #if defined(ESP8266)
-unsigned char hex2dec(const char *hex) {
+unsigned char hex2dec(const char *hex)
+{
 	return strtol(hex, NULL, 16);
 }
 
-bool isHex(char c) {
-	if(c>='0' && c<='9') return true;
-	if(c>='a' && c<='f') return true;
-	if(c>='A' && c<='F') return true;
+bool isHex(char c)
+{
+	if (c >= '0' && c <= '9')
+		return true;
+	if (c >= 'a' && c <= 'f')
+		return true;
+	if (c >= 'A' && c <= 'F')
+		return true;
 	return false;
 }
 
-bool isValidMAC(const char *_mac) {
+bool isValidMAC(const char *_mac)
+{
 	char mac[18], *hex;
 	strncpy(mac, _mac, 18);
 	mac[17] = 0;
 	unsigned char count = 0;
 	hex = strtok(mac, ":");
-	if(strlen(hex)!=2) return false;
-	if(!isHex(hex[0]) || !isHex(hex[1])) return false;
+	if (strlen(hex) != 2)
+		return false;
+	if (!isHex(hex[0]) || !isHex(hex[1]))
+		return false;
 	count++;
-	while(true) {
+	while (true)
+	{
 		hex = strtok(NULL, ":");
-		if(hex==NULL) break;
-		if(strlen(hex)!=2) return false;
-		if(!isHex(hex[0]) || !isHex(hex[1])) return false;
+		if (hex == NULL)
+			break;
+		if (strlen(hex) != 2)
+			return false;
+		if (!isHex(hex[0]) || !isHex(hex[1]))
+			return false;
 		count++;
 		yield();
 	}
-	if(count!=6) return false;
-	else return true;
+	if (count != 6)
+		return false;
+	else
+		return true;
 }
 
-void str2mac(const char *_str, unsigned char mac[]) {
+void str2mac(const char *_str, unsigned char mac[])
+{
 	char str[18], *hex;
 	strncpy(str, _str, 18);
 	str[17] = 0;
-	unsigned char count=0;
+	unsigned char count = 0;
 	hex = strtok(str, ":");
 	mac[count] = hex2dec(hex);
 	count++;
-	while(true) {
+	while (true)
+	{
 		hex = strtok(NULL, ":");
-		if(hex==NULL) break;
+		if (hex == NULL)
+			break;
 		mac[count++] = hex2dec(hex);
 		yield();
 	}

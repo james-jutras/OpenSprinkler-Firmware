@@ -75,6 +75,14 @@ extern char tmp_buffer[];
 extern char ether_buffer[];
 extern ProgramData pd;
 
+// JRJ
+// extern byte current_program_pid;
+// extern int current_program_state;
+// extern ulong current_program_schedule_type;
+extern int sensor1_active_override; // Defined in main.cpp and applied in OpenSprinkler.cpp detect_binarysensor_status()
+extern int sensor2_active_override; // Defined in main.cpp and applied in OpenSprinkler.cpp detect_binarysensor_status()
+// extern string getDateTime(time_t now);  // Defined in main.cpp or utils.cpp
+
 #if defined(ESP8266)
 	SSD1306Display OpenSprinkler::lcd(0x3c, SDA, SCL);
 	unsigned char OpenSprinkler::state = OS_STATE_INITIAL;
@@ -1379,6 +1387,23 @@ void OpenSprinkler::detect_binarysensor_status(time_os_t curr_time) {
 		if(hw_rev>=2)	pinModeExt(PIN_SENSOR1, INPUT_PULLUP); // this seems necessary for OS 3.2
 		unsigned char val = digitalReadExt(PIN_SENSOR1);
 		status.sensor1 = (val == iopts[IOPT_SENSOR1_OPTION]) ? 0 : 1;
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // JRJ v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        if (sensor1_active_override == 10)      //  (0==no override [default], 10==override to 0, 11=override to 1)
+        {
+            //DEBUG_PRINTLN("overriding Sensor1 to 0");
+            status.sensor1 = 0;
+        }
+        else if (sensor1_active_override == 11) //  (0==no override [default], 10==override to 0, 11=override to 1)
+        {
+            //DEBUG_PRINTLN("overriding Sensor1 to 1");
+            status.sensor1 = 1;
+        }
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // JRJ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		
 		if(status.sensor1) {
 			if(!sensor1_on_timer) {
 				// add minimum of 5 seconds on delay
@@ -1409,6 +1434,23 @@ void OpenSprinkler::detect_binarysensor_status(time_os_t curr_time) {
 		if(hw_rev>=2)	pinModeExt(PIN_SENSOR2, INPUT_PULLUP); // this seems necessary for OS 3.2
 		unsigned char val = digitalReadExt(PIN_SENSOR2);
 		status.sensor2 = (val == iopts[IOPT_SENSOR2_OPTION]) ? 0 : 1;
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // JRJ v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        if (sensor2_active_override == 10)      //  (0==no override [default], 10==override to 0, 11=override to 1)
+        {
+            //DEBUG_PRINTLN("overriding Sensor2 to 0");
+            status.sensor2 = 0;
+        }
+        else if (sensor2_active_override == 11) //  (0==no override [default], 10==override to 0, 11=override to 1)
+        {
+            //DEBUG_PRINTLN("overriding Sensor2 to 1");
+            status.sensor2 = 1;
+        }
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // JRJ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		
 		if(status.sensor2) {
 			if(!sensor2_on_timer) {
 				// add minimum of 5 seconds on delay
