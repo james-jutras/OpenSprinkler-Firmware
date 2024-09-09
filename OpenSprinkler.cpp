@@ -20,13 +20,33 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
+ 
+//
+// <JRJ> V2.2.1.0.100
+// 	  2024-09-02 Added spdlog V1.14.1 for enhanced logging/debugging capability e.g. descriptive messages, log file management, enhanced message formatting
+//
+
 
 #include "OpenSprinkler.h"
 #include "opensprinkler_server.h"
 #include "gpio.h"
 #include "testmode.h"
+// <JRJ> 20240310 "spdlog" logging solution https://github.com/gabime/spdlog V1.13.0
+#include "../spdlog-1.13.0/include/spdlog/spdlog.h"
+// <JRJ> 20100630 "WiringPi" library https://github.com/WiringPi/WiringPi
+//#include <wiringPi.h>
 #include "program.h"
 #include "ArduinoJson.hpp"
+
+// <JRJ> 20240902 "spdlog" logging solution https://github.com/gabime/spdlog V1.14.1
+#include "spdlog/spdlog.h"
+// #include <spdlog/sinks/dist_sink.h>
+// #include <spdlog/sinks/null_sink.h>
+// #include "spdlog/sinks/stdout_color_sinks.h"
+// #include <spdlog/sinks/basic_file_sink.h>
+// #include "spdlog/sinks/rotating_file_sink.h"
+// #include "spdlog/sinks/daily_file_sink.h"
+
 
 /** Declare static data members */
 OSMqtt OpenSprinkler::mqtt;
@@ -963,6 +983,64 @@ void OpenSprinkler::begin() {
 	#else
 		pinMode(PIN_SR_DATA, OUTPUT);
 	#endif
+  
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// JRJ v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  #if defined(OSPI)
+
+  
+  // JRJ 2021-03-17 HydroSys4 HAT Rex 10.4 [5,6,12,13,19,16,26,20,  14,4,15,18,17,27,23,22,  21,24,25]  21=Int, 24=Sensor, 25=Sensor
+  
+    pinMode(GPIO5, OUTPUT);
+    pinMode(GPIO6, OUTPUT);
+    pinMode(GPIO12, OUTPUT);
+    pinMode(GPIO13, OUTPUT);
+    pinMode(GPIO19, OUTPUT);
+    pinMode(GPIO16, OUTPUT);
+    pinMode(GPIO26, OUTPUT);
+    pinMode(GPIO20, OUTPUT);
+
+    pinMode(GPIO14, OUTPUT);
+    pinMode(GPIO4, OUTPUT);
+    pinMode(GPIO15, OUTPUT);
+    pinMode(GPIO18, OUTPUT);
+    pinMode(GPIO17, OUTPUT);
+    pinMode(GPIO27, OUTPUT);
+    pinMode(GPIO23, OUTPUT);
+    pinMode(GPIO22, OUTPUT);
+
+    digitalWrite(GPIO5, HIGH);
+    digitalWrite(GPIO6, HIGH);
+    digitalWrite(GPIO12, HIGH);
+    digitalWrite(GPIO13, HIGH);
+    digitalWrite(GPIO19, HIGH);
+    digitalWrite(GPIO16, HIGH);
+    digitalWrite(GPIO26, HIGH);
+    digitalWrite(GPIO20, HIGH);
+
+    digitalWrite(GPIO14, HIGH);
+    digitalWrite(GPIO4, HIGH);
+    digitalWrite(GPIO15, HIGH);
+    digitalWrite(GPIO18, HIGH);
+    digitalWrite(GPIO17, HIGH);
+    digitalWrite(GPIO27, HIGH);
+    digitalWrite(GPIO23, HIGH);
+    digitalWrite(GPIO22, HIGH);
+
+    #if defined(PIN_SENSOR1)
+        pinMode(PIN_SENSOR1, INPUT_PULLUP);
+    #endif
+    #if defined(PIN_SENSOR2)
+        pinMode(PIN_SENSOR2, INPUT_PULLUP);
+    #endif
+  #endif
+  
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// JRJ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
 #endif
 

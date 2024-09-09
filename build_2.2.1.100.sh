@@ -336,6 +336,21 @@ while true; do
       USEGPIO="-DLIBGPIOD"
       GPIOLIB="-lgpiod"
     fi
+    
+    # Must use GPIOD when running on noble (24.04.1) or higher
+    # See: https://github.com/OpenSprinkler/OpenSprinkler-Firmware/issues/250
+    ubuntu_version=$(lsb_release -d 2>/dev/null | cut -d ' ' -f2)
+    echo "Executing on OS: $ubuntu_version KERNAL: $(uname -r)"
+    ubuntu_version_major=$(echo $ubuntu_version | cut -d '.' -f1)
+    ubuntu_version_minor=$(echo $ubuntu_version | cut -d '.' -f2)
+    ubuntu_version_rev=$(echo $ubuntu_version | cut -d '.' -f3)
+    if [[ $(expr $ubuntu_version_major + 0) -ge 24 && $(expr $ubuntu_version_minor + 0) -ge 4 && $(expr $ubuntu_version_rev + 0) -ge 1 ]]; then
+      echo "Newer kernal found: UBUNTU V$ubuntu_version_major.$ubuntu_version_minor.$ubuntu_version_rev or higher =>Using libgpiod instead of classic sysfs for GPIO"
+      USEGPIO="-DLIBGPIOD"
+      GPIOLIB="-lgpiod"
+    else
+      echo "Older kernal found: UBUNTU V$ubuntu_version_major.$ubuntu_version_minor.$ubuntu_version_rev =>Using classic sysfs for GPIO"      
+    fi  
 
     #echo "Compiling ${executable_name} [OSPI] firmware using g++..."
 
